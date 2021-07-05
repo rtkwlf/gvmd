@@ -50,7 +50,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Remove severity type "debug" [#1316](https://github.com/greenbone/gvmd/pull/1316)
 - Remove element "threat" of element "notes" [#1324](https://github.com/greenbone/gvmd/pull/1324)
 
-[21.4.0]: https://github.com/greenbone/gvmd/compare/gvmd-20.08...v21.04.0
+[21.4.0]: https://github.com/greenbone/gvmd/compare/gvmd-20.08...v21.4.0
+
+## [20.8.3] (Unreleased)
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+- Fix VTs hash check and add --dump-vt-verification [#1611](https://github.com/greenbone/gvmd/pull/1611)
+
+[Unreleased]: https://github.com/greenbone/gvmd/compare/v20.8.2...gvmd-20.08
 
 ## [20.8.2] (unreleased)
 
