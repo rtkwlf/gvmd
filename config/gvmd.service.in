@@ -7,13 +7,15 @@ ConditionKernelCommandLine=!recovery
 
 [Service]
 Type=forking
-User=$GVMD_USER
-Group=$GVMD_GROUP
-PIDFile=${GVM_RUN_DIR}/gvmd.pid
-EnvironmentFile=${DEFAULT_CONFIG_DIR}/gvmd
-ExecStart=${SBINDIR}/gvmd --osp-vt-update=$OSP_VT_UPDATE $OPTIONS
+PIDFile=/usr/var/run/gvmd.pid
+ExecStart=/usr/sbin/gvmd
+KillMode=mixed
 Restart=always
-TimeoutStopSec=10
+RestartSec=1
+User=root
+Group=root
+TimeoutStartSec=600
+TimeoutStopSec=60
 
 [Install]
 WantedBy=multi-user.target
