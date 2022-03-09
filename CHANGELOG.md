@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [21.4.4] - Unreleased - 2021-10-12
+### Added
+- Add --rebuild-gvmd-data command line option [#1680](https://github.com/greenbone/gvmd/pull/1680) [#1683](https://github.com/greenbone/gvmd/pull/1683)
+
+### Fixed
+- Ensure gvmd sends error messages if gvmcg fails [#1682](https://github.com/greenbone/gvmd/pull/1682)
+- Fix resume task.
+  [#1679](https://github.com/greenbone/gvmd/pull/1679)
+  [#1695](https://github.com/greenbone/gvmd/pull/1695)
+- Added a dedicated error message for the create ticket dialogue when the create permission permission is missing [#1686](https://github.com/greenbone/gvmd/pull/1686)
+- Fix import of report results / errors without host [#1687](https://github.com/greenbone/gvmd/pull/1687)
+
+[21.4.4]: https://github.com/greenbone/gvmd/compare/v21.4.3...v21.4.4
+
+## [21.4.3] - 2021-08-03
+### Fixed
+- Fix sending prefs for whole, growing VT families [#1603](https://github.com/greenbone/gvmd/pull/1603)
+- Add trash columns for target "elevate" credential [#1636](https://github.com/greenbone/gvmd/pull/1636)
+
+[21.4.3]: https://github.com/greenbone/gvmd/compare/v21.4.2...stable
+
+## [21.4.2] - 2021-06-28
+### Fixed
+- Amended Test, if the ssh elevate credential is different from the ssh credential [#1586](https://github.com/greenbone/gvmd/pull/1586)
+- Added the missing GMP documentation for the ssh elevate credential [#1591](https://github.com/greenbone/gvmd/pull/1591)
+
+[21.4.2]: https://github.com/greenbone/gvmd/compare/v21.4.1...v21.4.2
+
+## [21.4.1] - 2021-06-23
+
+### Added
+- Add NVT tag "deprecated" [#1536](https://github.com/greenbone/gvmd/pull/1536)
+- Extend GMP for new privilege escalation credential [#1535](https://github.com/greenbone/gvmd/pull/1535)
+- Include new ssh elevate (escalation) credential in OSP request [#1539](https://github.com/greenbone/gvmd/pull/1539)
+- Add test if the ssh elevate credential is different from the ssh credential [#1582](https://github.com/greenbone/gvmd/pull/1582)
+
+### Changed
+- Update default log config [#1501](https://github.com/greenbone/gvmd/pull/1501)
+
+### Fixed
+- Improve VT version handling for CVE & OVAL results [#1496](https://github.com/greenbone/gvmd/pull/1496)
+- Fix migration to DB version 242 from gvmd 20.08 [#1498](https://github.com/greenbone/gvmd/pull/1498)
+- Update subject alternative name in certificate generation [#1503](https://github.com/greenbone/gvmd/pull/1503)
+- Fix whole-only config family selection [#1517](https://github.com/greenbone/gvmd/pull/1517)
+- Migrate GMP Scanners to OSP Sensors [#1533](https://github.com/greenbone/gvmd/pull/1533)
+- Solved a peformance problem for tasks after scanning lots of hosts [#1567](https://github.com/greenbone/gvmd/pull/1567)
+- Solved a performance problem when filtering results by tags [#1579](https://github.com/greenbone/gvmd/pull/1579)
+
+[21.4.1]: https://github.com/greenbone/gvmd/compare/v21.4.0...v21.4.1
+
 ## [21.4.0] (2021-04-16)
 
 ### Added
@@ -50,29 +100,68 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Remove severity type "debug" [#1316](https://github.com/greenbone/gvmd/pull/1316)
 - Remove element "threat" of element "notes" [#1324](https://github.com/greenbone/gvmd/pull/1324)
 
-[21.4.0]: https://github.com/greenbone/gvmd/compare/gvmd-20.08...v21.4.0
+[21.4.0]: https://github.com/greenbone/gvmd/compare/oldstable...v21.4.0
 
-## [20.8.3] (Unreleased)
+## [20.8.4] - Unreleased
 ### Added
 ### Changed
+* Changed defaults for installation locations [#1662](https://github.com/greenbone/gvmd/pull/1662) [#1665](https://github.com/greenbone/gvmd/pull/1665)
+    * SYSCONFDIR is /etc by default now
+    * LOCALSTATEDIR is /var by default now
+    * GVM_RUN_DIR is /run/gvm by default now
+    * OPENVAS_DEFAULT_SOCKET is /run/ospd/ospd-openvas.sock by default now
+    * SYSTEMD_SERVICE_DIR is /lib/systemd/system by default now
+    * Removed gvmd.default file and adjusted gvmd.service file accordingly
+    * GVM_FEED_LOCK_PATH is /var/lib/gvm/feed-update.lock by default now
+
 ### Deprecated
 ### Removed
+*  Remove BID from GMP documentation [#1673](https://github.com/greenbone/gvmd/pull/1673)
+
 ### Fixed
-- Fix VTs hash check and add --dump-vt-verification [#1611](https://github.com/greenbone/gvmd/pull/1611)
+- Fixed the lack of the severities in the display of the applications [#1666](https://github.com/greenbone/gvmd/pull/1666)
 
-[Unreleased]: https://github.com/greenbone/gvmd/compare/v20.8.2...gvmd-20.08
+[20.8.4]: https://github.com/greenbone/gvmd/compare/v20.8.3...oldstable
 
-## [20.8.2] (unreleased)
+## [20.8.3] - 2021-08-03
+
+### Added
+- Add --optimize add-/cleanup-feed-permissions [#1612](https://github.com/greenbone/gvmd/pull/1612)
+
+### Changed
+- Use less report cache SQL when adding results [#1618](https://github.com/greenbone/gvmd/pull/1618)
+
+### Fixed
+- Solved a performance problem when filtering results by tags [#1579](https://github.com/greenbone/gvmd/pull/1579)
+- Fix VTs hash check and add --dump-vt-verification
+  [#1611](https://github.com/greenbone/gvmd/pull/1611)
+  [#1629](https://github.com/greenbone/gvmd/pull/1629)
+  [#1641](https://github.com/greenbone/gvmd/pull/1651)
+  [#1643](https://github.com/greenbone/gvmd/pull/1643)
+  [#1655](https://github.com/greenbone/gvmd/pull/1655)
+- Fix memory errors in modify_permission [#1613](https://github.com/greenbone/gvmd/pull/1613)
+- Fix sensor connection for performance reports on failure [#1633](https://github.com/greenbone/gvmd/pull/1633)
+- Sort the "host" column by IPv4 address if possible [#1637](https://github.com/greenbone/gvmd/pull/1637)
+- Fix for parse_iso_time_tz error with musl library [#1644](https://github.com/greenbone/gvmd/pull/1644)
+
+[20.8.3]: https://github.com/greenbone/gvmd/compare/v20.8.2...oldstable
+
+## [20.8.2] - 2021-06-23
 
 ### Added
 - Add standard info elem fields for NVTs in get_info [#1426](https://github.com/greenbone/gvmd/pull/1426)
 - Add --ldap-debug option [#1439](https://github.com/greenbone/gvmd/pull/1439)
-- Add check if PostgreSQL extensions are installed [#1444](https://github.com/greenbone/gvmd/pull/1444)
+- Try to install PostgreSQL extensions automatically [#1444](https://github.com/greenbone/gvmd/pull/1444) [#1483](https://github.com/greenbone/gvmd/pull/1483)
 - Add auto retry on scanner connection lost during a running task [#1452](https://github.com/greenbone/gvmd/pull/1452)
 - Add --feed-lock-timeout option [#1472](https://github.com/greenbone/gvmd/pull/1472)
+- datetime parser for `%Y-%m-%dT%Hh%M` for keywords [1518](https://github.com/greenbone/gvmd/pull/1518)
 
 ### Changed
 - Improve report counts performance [#1438](https://github.com/greenbone/gvmd/pull/1438)
+- Clean up log config, add gvm-libs log domains [#1502](https://github.com/greenbone/gvmd/pull/1502)
+- Sort missing severity as lowest value in GMP get [#1508](https://github.com/greenbone/gvmd/pull/1508)
+- Use passwordbasedauthentication of gvm-libs instead of auth_utils [#1505](https://github.com/greenbone/gvmd/pull/1505)
+- Set file permissions in greenbone-feed-sync [#1575](https://github.com/greenbone/gvmd/pull/1575)
 
 ### Fixed
 - Also create owner WITH clause for single resources [#1406](https://github.com/greenbone/gvmd/pull/1406)
@@ -83,11 +172,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix report host end time check in CVE scans [#1462](https://github.com/greenbone/gvmd/pull/1462)
 - Fix "not regexp ..." filters [#1482](https://github.com/greenbone/gvmd/pull/1482)
 - Escape TLS certificate DNs that are invalid UTF-8 [#1486](https://github.com/greenbone/gvmd/pull/1486)
+- Free alert get data in report_content_for_alert [#1526](https://github.com/greenbone/gvmd/pull/1526) 
+- Fix erroneous freeing of ical timezone component [#1530](https://github.com/greenbone/gvmd/pull/1530)
+- Fixed the sorting / filter by username functionality for remediation tickets [#1546](https://github.com/greenbone/gvmd/pull/1546)
+- The alterable indicator is now copied when cloning a task [#1553](https://github.com/greenbone/gvmd/pull/1553)
+- Fix stop resume feature. [#1568](https://github.com/greenbone/gvmd/pull/1568)
 
 ### Removed
 
-[20.8.2]: https://github.com/greenbone/gvmd/compare/v20.8.1...gvmd-20.08
-
+[20.8.2]: https://github.com/greenbone/gvmd/compare/v20.8.1...v20.8.2
 
 ## [20.8.1] (2021-02-02)
 
@@ -104,6 +197,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Extended the output of invalid / missing --feed parameter given to greenbone-feed-sync [#1255](https://github.com/greenbone/gvmd/pull/1255)
 - The xsltproc binary is now marked as mandatory [#1259](https://github.com/greenbone/gvmd/pull/1259)
 - Check feed status without acquiring lock [#1266](https://github.com/greenbone/gvmd/pull/1266)
+- Use timestamp in automatic sensor task names [#1390](https://github.com/greenbone/gvmd/pull/1390)
 - Replace g_file_test with gvm-libs file tests [#1391](https://github.com/greenbone/gvmd/pull/1391)
 
 ### Fixed
@@ -147,7 +241,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 - Remove DROP from vulns creation [#1281](http://github.com/greenbone/gvmd/pull/1281)
 
-[20.8.1]: https://github.com/greenbone/gvmd/compare/v20.8.0...gvmd-20.08
+[20.8.1]: https://github.com/greenbone/gvmd/compare/v20.8.0...gvmd-20.8.1
 
 ## [20.8.0] (2020-08-11)
 

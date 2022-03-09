@@ -2342,9 +2342,9 @@ migrate_233_to_234 ()
        " DROP column slave_host,"
        " DROP column slave_port;");
 
-  /* Convert existing GMP Scanners to OSP Scanners. */
-  sql ("UPDATE scanners SET type = 2 WHERE type = 4;");
-  sql ("UPDATE scanners_trash SET type = 2 WHERE type = 4;");
+  /* Convert existing GMP Scanners to OSP Sensors. */
+  sql ("UPDATE scanners SET type = 5 WHERE type = 4;");
+  sql ("UPDATE scanners_trash SET type = 5 WHERE type = 4;");
 
   /* Set the database version to 234. */
 
@@ -2627,10 +2627,20 @@ migrate_241_to_242 ()
 
   sql ("ALTER TABLE results_trash DROP COLUMN IF EXISTS score;");
 
-  /* Change the vt_severities table to a CVSS score */
-  sql ("ALTER TABLE vt_severities ALTER COLUMN score"
-       " SET DATA TYPE double precision;");
-  sql ("UPDATE vt_severities SET score = round((score / 10.0)::numeric, 1);");
+  /* Change the vt_severities table to use a CVSS score
+   * if it already exists (migrating from a 21.04 development version) */
+  if (sql_int ("SELECT EXISTS (SELECT * FROM information_schema.tables"
+               "               WHERE table_catalog = '%s'"
+               "               AND table_schema = 'public'"
+               "               AND table_name = 'vt_severities')"
+               " ::integer;",
+               sql_database ()))
+    {
+      sql ("ALTER TABLE vt_severities ALTER COLUMN score"
+           " SET DATA TYPE double precision;");
+      sql ("UPDATE vt_severities"
+           " SET score = round((score / 10.0)::numeric, 1);");
+    }
 
   /* Set the database version to 242. */
 

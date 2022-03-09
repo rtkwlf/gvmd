@@ -26,10 +26,10 @@ find_package (Threads)
 ## list and throw an error, otherwise long install-cmake-install-cmake cycles
 ## might occur.
 
-pkg_check_modules (LIBGVM_BASE REQUIRED libgvm_base>=21.04.0)
-pkg_check_modules (LIBGVM_UTIL REQUIRED libgvm_util>=21.04.0)
-pkg_check_modules (LIBGVM_OSP REQUIRED libgvm_osp>=21.04.0)
-pkg_check_modules (LIBGVM_GMP REQUIRED libgvm_gmp>=21.04.0)
+pkg_check_modules (LIBGVM_BASE REQUIRED libgvm_base>=21.4.1)
+pkg_check_modules (LIBGVM_UTIL REQUIRED libgvm_util>=21.4.1)
+pkg_check_modules (LIBGVM_OSP REQUIRED libgvm_osp>=21.4.1)
+pkg_check_modules (LIBGVM_GMP REQUIRED libgvm_gmp>=21.4.1)
 pkg_check_modules (GNUTLS REQUIRED gnutls>=3.2.15)
 pkg_check_modules (GLIB REQUIRED glib-2.0>=2.42)
 pkg_check_modules (LIBICAL REQUIRED libical>=1.00)
@@ -104,6 +104,7 @@ add_executable (manage-utils-test
                 manage_acl.c manage_configs.c manage_get.c
                 manage_port_lists.c manage_preferences.c
                 manage_report_formats.c
+                manage_authentication.c
                 manage_sql.c manage_sql_nvts.c manage_sql_secinfo.c
                 manage_sql_port_lists.c manage_sql_configs.c
                 manage_sql_report_formats.c
@@ -127,6 +128,7 @@ add_executable (manage-test
                 manage_acl.c manage_configs.c manage_get.c
                 manage_port_lists.c manage_preferences.c
                 manage_report_formats.c
+                manage_authentication.c
                 manage_sql.c manage_sql_nvts.c manage_sql_secinfo.c
                 manage_sql_port_lists.c manage_sql_configs.c
                 manage_sql_report_formats.c
@@ -150,6 +152,7 @@ add_executable (manage-sql-test
                 manage_acl.c manage_configs.c manage_get.c
                 manage_port_lists.c manage_preferences.c
                 manage_report_formats.c
+                manage_authentication.c
                 manage_sql_nvts.c manage_sql_secinfo.c
                 manage_sql_port_lists.c manage_sql_configs.c
                 manage_sql_report_formats.c
@@ -173,6 +176,7 @@ add_executable (gmp-tickets-test
                 manage_acl.c manage_configs.c manage_get.c
                 manage_port_lists.c manage_preferences.c
                 manage_report_formats.c
+                manage_authentication.c
                 manage_sql.c manage_sql_nvts.c manage_sql_secinfo.c
                 manage_sql_port_lists.c manage_sql_configs.c
                 manage_sql_report_formats.c
@@ -195,6 +199,7 @@ add_executable (utils-test
                 manage_acl.c manage_configs.c manage_get.c
                 manage_port_lists.c manage_preferences.c
                 manage_report_formats.c
+                manage_authentication.c
                 manage_sql.c manage_sql_nvts.c manage_sql_secinfo.c
                 manage_sql_port_lists.c manage_sql_configs.c
                 manage_sql_report_formats.c
@@ -219,6 +224,7 @@ add_executable (gvmd
                 manage_acl.c manage_configs.c manage_get.c
                 manage_port_lists.c manage_preferences.c
                 manage_report_formats.c
+                manage_authentication.c
                 manage_sql.c manage_sql_nvts.c manage_sql_secinfo.c
                 manage_sql_port_lists.c manage_sql_configs.c
                 manage_sql_report_formats.c
@@ -360,9 +366,13 @@ if (GVMD_STATE_DIR)
   add_definitions (-DGVMD_STATE_DIR="${GVMD_STATE_DIR}")
 endif (GVMD_STATE_DIR)
 
-if (GVM_RUN_DIR)
-        add_definitions (-DGVM_RUN_DIR="${GVM_RUN_DIR}")
-endif (GVM_RUN_DIR)
+if (GVMD_RUN_DIR)
+        add_definitions (-DGVMD_RUN_DIR="${GVMD_RUN_DIR}")
+endif (GVMD_RUN_DIR)
+
+if (GVMD_PID_PATH)
+        add_definitions (-DGVMD_PID_PATH="${GVMD_PID_PATH}")
+endif (GVMD_PID_PATH)
 
 if (GVM_SYSCONF_DIR)
         add_definitions (-DGVM_SYSCONF_DIR="${GVM_SYSCONF_DIR}")
@@ -433,6 +443,7 @@ set (C_FILES "${CMAKE_CURRENT_SOURCE_DIR}/gvmd.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/manage_port_lists.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/manage_preferences.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/manage_report_formats.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/manage_authentication.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/manage_sql.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/manage_sql_configs.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/manage_sql_nvts.c"

@@ -918,27 +918,28 @@ create_schedule_data_reset (create_schedule_data_t *data)
  */
 typedef struct
 {
-  char *alive_tests;             ///< Alive tests.
-  char *allow_simultaneous_ips;  ///< Boolean. Whether to scan multiple IPs of a host simultaneously.
-  char *asset_hosts_filter;      ///< Asset hosts.
-  char *comment;                 ///< Comment.
-  char *exclude_hosts;           ///< Hosts to exclude from set.
-  char *reverse_lookup_only;     ///< Boolean. Whether to consider only hosts that reverse lookup.
-  char *reverse_lookup_unify;    ///< Boolean. Whether to unify based on reverse lookup.
-  char *copy;                    ///< UUID of resource to copy.
-  char *hosts;                   ///< Hosts for new target.
-  char *port_list_id;            ///< Port list for new target.
-  char *port_range;              ///< Port range for new target.
-  char *ssh_credential_id;       ///< SSH credential for new target.
-  char *ssh_lsc_credential_id;   ///< SSH credential (deprecated).
-  char *ssh_port;                ///< Port for SSH.
-  char *ssh_lsc_port;            ///< Port for SSH (deprecated).
-  char *smb_credential_id;       ///< SMB credential for new target.
-  char *smb_lsc_credential_id;   ///< SMB credential (deprecated).
-  char *esxi_credential_id;      ///< ESXi credential for new target.
-  char *esxi_lsc_credential_id;  ///< ESXi credential (deprecated).
-  char *snmp_credential_id;      ///< SNMP credential for new target.
-  char *name;                    ///< Name of new target.
+  char *alive_tests;                ///< Alive tests.
+  char *allow_simultaneous_ips;     ///< Boolean. Whether to scan multiple IPs of a host simultaneously.
+  char *asset_hosts_filter;         ///< Asset hosts.
+  char *comment;                    ///< Comment.
+  char *exclude_hosts;              ///< Hosts to exclude from set.
+  char *reverse_lookup_only;        ///< Boolean. Whether to consider only hosts that reverse lookup.
+  char *reverse_lookup_unify;       ///< Boolean. Whether to unify based on reverse lookup.
+  char *copy;                       ///< UUID of resource to copy.
+  char *hosts;                      ///< Hosts for new target.
+  char *port_list_id;               ///< Port list for new target.
+  char *port_range;                 ///< Port range for new target.
+  char *ssh_credential_id;          ///< SSH credential for new target.
+  char *ssh_lsc_credential_id;      ///< SSH credential (deprecated).
+  char *ssh_elevate_credential_id;  ///< SSH elevation credential.
+  char *ssh_port;                   ///< Port for SSH.
+  char *ssh_lsc_port;               ///< Port for SSH (deprecated).
+  char *smb_credential_id;          ///< SMB credential for new target.
+  char *smb_lsc_credential_id;      ///< SMB credential (deprecated).
+  char *esxi_credential_id;         ///< ESXi credential for new target.
+  char *esxi_lsc_credential_id;     ///< ESXi credential (deprecated).
+  char *snmp_credential_id;         ///< SNMP credential for new target.
+  char *name;                       ///< Name of new target.
 } create_target_data_t;
 
 /**
@@ -962,6 +963,7 @@ create_target_data_reset (create_target_data_t *data)
   free (data->port_range);
   free (data->ssh_credential_id);
   free (data->ssh_lsc_credential_id);
+  free (data->ssh_elevate_credential_id);
   free (data->ssh_port);
   free (data->ssh_lsc_port);
   free (data->smb_credential_id);
@@ -2807,25 +2809,26 @@ modify_setting_data_reset (modify_setting_data_t *data)
  */
 typedef struct
 {
-  char *alive_tests;             ///< Alive tests.
-  char *allow_simultaneous_ips;  ///< Boolean. Whether to scan multiple IPs of a host simultaneously.
-  char *comment;                 ///< Comment.
-  char *exclude_hosts;           ///< Hosts to exclude from set.
-  char *reverse_lookup_only;     ///< Boolean. Whether to consider only hosts that reverse lookup.
-  char *reverse_lookup_unify;    ///< Boolean. Whether to unify based on reverse lookup.
-  char *hosts;                   ///< Hosts for target.
-  char *name;                    ///< Name of target.
-  char *port_list_id;            ///< Port list for target.
-  char *ssh_credential_id;       ///< SSH credential for target.
-  char *ssh_lsc_credential_id;   ///< SSH credential for target (deprecated).
-  char *ssh_port;                ///< Port for SSH.
-  char *ssh_lsc_port;            ///< Port for SSH (deprecated).
-  char *smb_credential_id;       ///< SMB credential for target.
-  char *smb_lsc_credential_id;   ///< SMB credential for target (deprecated).
-  char *esxi_credential_id;      ///< ESXi credential for target.
-  char *esxi_lsc_credential_id;  ///< ESXi credential for target (deprecated).
-  char *snmp_credential_id;      ///< SNMP credential for target.
-  char *target_id;               ///< Target UUID.
+  char *alive_tests;                 ///< Alive tests.
+  char *allow_simultaneous_ips;      ///< Boolean. Whether to scan multiple IPs of a host simultaneously.
+  char *comment;                     ///< Comment.
+  char *exclude_hosts;               ///< Hosts to exclude from set.
+  char *reverse_lookup_only;         ///< Boolean. Whether to consider only hosts that reverse lookup.
+  char *reverse_lookup_unify;        ///< Boolean. Whether to unify based on reverse lookup.
+  char *hosts;                       ///< Hosts for target.
+  char *name;                        ///< Name of target.
+  char *port_list_id;                ///< Port list for target.
+  char *ssh_credential_id;           ///< SSH credential for target.
+  char *ssh_lsc_credential_id;       ///< SSH credential for target (deprecated).
+  char *ssh_elevate_credential_id;   ///< SSH credential for target (deprecated).
+  char *ssh_port;                    ///< Port for SSH.
+  char *ssh_lsc_port;                ///< Port for SSH (deprecated).
+  char *smb_credential_id;           ///< SMB credential for target.
+  char *smb_lsc_credential_id;       ///< SMB credential for target (deprecated).
+  char *esxi_credential_id;          ///< ESXi credential for target.
+  char *esxi_lsc_credential_id;      ///< ESXi credential for target (deprecated).
+  char *snmp_credential_id;          ///< SNMP credential for target.
+  char *target_id;                   ///< Target UUID.
 } modify_target_data_t;
 
 /**
@@ -2847,6 +2850,7 @@ modify_target_data_reset (modify_target_data_t *data)
   free (data->port_list_id);
   free (data->ssh_credential_id);
   free (data->ssh_lsc_credential_id);
+  free (data->ssh_elevate_credential_id);
   free (data->ssh_port);
   free (data->ssh_lsc_port);
   free (data->smb_credential_id);
@@ -4262,6 +4266,7 @@ typedef enum
   CLIENT_CREATE_TARGET_SMB_LSC_CREDENTIAL,
   CLIENT_CREATE_TARGET_SSH_LSC_CREDENTIAL,
   CLIENT_CREATE_TARGET_SSH_LSC_CREDENTIAL_PORT,
+  CLIENT_CREATE_TARGET_SSH_ELEVATE_CREDENTIAL,
   CLIENT_CREATE_TASK,
   CLIENT_CREATE_TASK_ALERT,
   CLIENT_CREATE_TASK_ALTERABLE,
@@ -4485,6 +4490,7 @@ typedef enum
   CLIENT_MODIFY_TARGET_SMB_CREDENTIAL,
   CLIENT_MODIFY_TARGET_SNMP_CREDENTIAL,
   CLIENT_MODIFY_TARGET_SSH_CREDENTIAL,
+  CLIENT_MODIFY_TARGET_SSH_ELEVATE_CREDENTIAL,
   CLIENT_MODIFY_TARGET_SSH_CREDENTIAL_PORT,
   CLIENT_MODIFY_TARGET_SMB_LSC_CREDENTIAL,
   CLIENT_MODIFY_TARGET_SSH_LSC_CREDENTIAL,
@@ -6516,6 +6522,12 @@ gmp_xml_handle_start_element (/* unused */ GMarkupParseContext* context,
                               &modify_target_data->ssh_lsc_credential_id);
             set_client_state (CLIENT_MODIFY_TARGET_SSH_LSC_CREDENTIAL);
           }
+        else if (strcasecmp ("SSH_ELEVATE_CREDENTIAL", element_name) == 0)
+          {
+            append_attribute (attribute_names, attribute_values, "id",
+                              &modify_target_data->ssh_elevate_credential_id);
+            set_client_state (CLIENT_MODIFY_TARGET_SSH_ELEVATE_CREDENTIAL);
+          }
         else if (strcasecmp ("SMB_CREDENTIAL", element_name) == 0)
           {
             append_attribute (attribute_names, attribute_values, "id",
@@ -7521,6 +7533,12 @@ gmp_xml_handle_start_element (/* unused */ GMarkupParseContext* context,
             append_attribute (attribute_names, attribute_values, "id",
                               &create_target_data->ssh_lsc_credential_id);
             set_client_state (CLIENT_CREATE_TARGET_SSH_LSC_CREDENTIAL);
+          }
+        else if (strcasecmp ("SSH_ELEVATE_CREDENTIAL", element_name) == 0)
+          {
+            append_attribute (attribute_names, attribute_values, "id",
+                              &create_target_data->ssh_elevate_credential_id);
+            set_client_state (CLIENT_CREATE_TARGET_SSH_ELEVATE_CREDENTIAL);
           }
         else if (strcasecmp ("SMB_CREDENTIAL", element_name) == 0)
           {
@@ -16153,6 +16171,7 @@ handle_get_system_reports (gmp_parser_t *gmp_parser, GError **error)
          (&types,
           get_system_reports_data->name,
           get_system_reports_data->slave_id);
+
   switch (ret)
     {
       case 1:
@@ -16246,7 +16265,7 @@ handle_get_system_reports (gmp_parser_t *gmp_parser, GError **error)
                   "</system_report>",
                   report_type_iterator_name (&types),
                   report_type_iterator_title (&types),
-                  (ret == 3 ? "txt" : "png"),
+                  (report_ret == 3 ? "txt" : "png"),
                   get_system_reports_data->start_time
                     ? get_system_reports_data->start_time : "",
                   get_system_reports_data->end_time
@@ -16432,16 +16451,19 @@ handle_get_targets (gmp_parser_t *gmp_parser, GError **error)
         {
           char *ssh_name, *ssh_uuid, *smb_name, *smb_uuid;
           char *esxi_name, *esxi_uuid, *snmp_name, *snmp_uuid;
+          char *ssh_elevate_name, *ssh_elevate_uuid;
           const char *port_list_uuid, *port_list_name, *ssh_port;
           const char *hosts, *exclude_hosts, *reverse_lookup_only;
           const char *reverse_lookup_unify, *allow_simultaneous_ips;
           credential_t ssh_credential, smb_credential;
           credential_t esxi_credential, snmp_credential;
+          credential_t ssh_elevate_credential;
           int port_list_trash, max_hosts, port_list_available;
           int ssh_credential_available;
           int smb_credential_available;
           int esxi_credential_available;
           int snmp_credential_available;
+          int ssh_elevate_credential_available;
 
           ret = get_next (&targets, &get_targets_data->get, &first,
                           &count, init_target_iterator);
@@ -16457,6 +16479,8 @@ handle_get_targets (gmp_parser_t *gmp_parser, GError **error)
           smb_credential = target_iterator_smb_credential (&targets);
           esxi_credential = target_iterator_esxi_credential (&targets);
           snmp_credential = target_iterator_snmp_credential (&targets);
+          ssh_elevate_credential
+            = target_iterator_ssh_elevate_credential (&targets);
           ssh_credential_available = 1;
           if (get_targets_data->get.trash
               && target_iterator_ssh_trash (&targets))
@@ -16569,6 +16593,35 @@ handle_get_targets (gmp_parser_t *gmp_parser, GError **error)
               snmp_name = NULL;
               snmp_uuid = NULL;
             }
+          ssh_elevate_credential_available = 1;
+          if (get_targets_data->get.trash
+              && target_iterator_ssh_elevate_trash (&targets))
+            {
+              ssh_elevate_name
+                = trash_credential_name (ssh_elevate_credential);
+              ssh_elevate_uuid
+                = trash_credential_uuid (ssh_elevate_credential);
+              ssh_elevate_credential_available
+                = trash_credential_readable (ssh_elevate_credential);
+            }
+          else if (ssh_elevate_credential)
+            {
+              credential_t found;
+
+              ssh_elevate_name = credential_name (ssh_elevate_credential);
+              ssh_elevate_uuid = credential_uuid (ssh_elevate_credential);
+              if (find_credential_with_permission
+                    (ssh_elevate_uuid,
+                     &found,
+                     "get_credentials"))
+                abort ();
+              ssh_elevate_credential_available = (found > 0);
+            }
+          else
+            {
+              ssh_elevate_name = NULL;
+              ssh_elevate_uuid = NULL;
+            }
           port_list_uuid = target_iterator_port_list_uuid (&targets);
           port_list_name = target_iterator_port_list_name (&targets);
           port_list_trash = target_iterator_port_list_trash (&targets);
@@ -16667,6 +16720,18 @@ handle_get_targets (gmp_parser_t *gmp_parser, GError **error)
             SEND_TO_CLIENT_OR_FAIL ("<permissions/>");
 
           SENDF_TO_CLIENT_OR_FAIL ("</snmp_credential>"
+                                   "<ssh_elevate_credential id=\"%s\">"
+                                   "<name>%s</name>"
+                                   "<trash>%i</trash>",
+                                   ssh_elevate_uuid ? ssh_elevate_uuid : "",
+                                   ssh_elevate_name ? ssh_elevate_name : "",
+                                   (get_targets_data->get.trash
+                                    && target_iterator_ssh_elevate_trash (&targets)));
+
+          if (ssh_elevate_credential_available == 0)
+            SEND_TO_CLIENT_OR_FAIL ("<permissions/>");
+
+          SENDF_TO_CLIENT_OR_FAIL ("</ssh_elevate_credential>"
                                    "<reverse_lookup_only>"
                                    "%s"
                                    "</reverse_lookup_only>"
@@ -16722,6 +16787,8 @@ handle_get_targets (gmp_parser_t *gmp_parser, GError **error)
           free (smb_uuid);
           free (esxi_name);
           free (esxi_uuid);
+          free (ssh_elevate_name);
+          free (ssh_elevate_uuid);
         }
       cleanup_iterator (&targets);
       filtered = get_targets_data->get.id
@@ -18264,8 +18331,9 @@ gmp_xml_handle_result ()
   // https://www.freebsd.org/cgi/man.cgi?query=strcspn&sektion=3
   // strcspn returns the number of chars spanned so it should be safe
   // without double checking.
-  create_report_data
-    ->result_host[strcspn (create_report_data->result_host, "\n")] = 0;
+  if (create_report_data->result_host)
+    create_report_data
+      ->result_host[strcspn (create_report_data->result_host, "\n")] = 0;
   result->host = create_report_data->result_host;
   result->hostname = create_report_data->result_hostname;
   result->nvt_oid = create_report_data->result_nvt_oid;
@@ -18306,7 +18374,7 @@ gmp_xml_handle_result ()
           detail->ip = g_strdup (result->host);
           detail->name = g_strconcat ("detected_by@", detection->location, NULL);
           detail->source_desc = g_strdup ("create_report_import");
-          detail->source_name = g_strdup (detection->source_oid);
+          detail->source_name = g_strdup (result->nvt_oid);
           detail->source_type = g_strdup ("create_report_import");
           detail->value = g_strdup (detection->source_oid);
           array_add (create_report_data->details, detail);
@@ -21414,7 +21482,8 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
 
       case CLIENT_CREATE_TARGET:
         {
-          credential_t ssh_credential = 0, smb_credential = 0;
+          credential_t ssh_credential = 0, ssh_elevate_credential = 0;
+          credential_t smb_credential = 0;
           credential_t esxi_credential = 0, snmp_credential = 0;
           target_t new_target;
 
@@ -21512,6 +21581,12 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
                   return;
                 }
             }
+          else if (create_target_data->ssh_elevate_credential_id
+                   && find_credential_with_permission
+                       (create_target_data->ssh_elevate_credential_id,
+                        &ssh_elevate_credential,
+                        "get_credentials"))
+            SEND_TO_CLIENT_OR_FAIL (XML_INTERNAL_ERROR ("create_target"));
           else if (create_target_data->smb_credential_id
                    && find_credential_with_permission
                        (create_target_data->smb_credential_id,
@@ -21596,6 +21671,7 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
                          create_target_data->port_list_id,
                          create_target_data->port_range,
                          ssh_credential,
+			 ssh_elevate_credential,
                          create_target_data->ssh_credential_id
                           ? create_target_data->ssh_port
                           : create_target_data->ssh_lsc_port,
@@ -21665,29 +21741,50 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
               case 9:
                 SEND_TO_CLIENT_OR_FAIL
                  (XML_ERROR_SYNTAX ("create_target",
-                                    "SMB credential must be of type"
+                                    "ELEVATE credential must be of type"
                                     " 'up'"));
                 log_event_fail ("target", "Target", NULL, "created");
                 break;
               case 10:
                 SEND_TO_CLIENT_OR_FAIL
                  (XML_ERROR_SYNTAX ("create_target",
-                                    "ESXi credential must be of type"
+                                    "SMB credential must be of type"
                                     " 'up'"));
                 log_event_fail ("target", "Target", NULL, "created");
                 break;
               case 11:
                 SEND_TO_CLIENT_OR_FAIL
                  (XML_ERROR_SYNTAX ("create_target",
-                                    "SNMP credential must be of type"
-                                    " 'snmp'"));
+                                    "ESXi credential must be of type"
+                                    " 'up'"));
                 log_event_fail ("target", "Target", NULL, "created");
                 break;
               case 12:
                 SEND_TO_CLIENT_OR_FAIL
                  (XML_ERROR_SYNTAX ("create_target",
+                                    "SNMP credential must be of type"
+                                    " 'snmp'"));
+                log_event_fail ("target", "Target", NULL, "created");
+                break;
+              case 13:
+                SEND_TO_CLIENT_OR_FAIL
+                 (XML_ERROR_SYNTAX ("create_target",
                                     "One of PORT_LIST and PORT_RANGE are"
                                     " required"));
+                log_event_fail ("target", "Target", NULL, "created");
+                break;
+              case 14:
+                SEND_TO_CLIENT_OR_FAIL
+                 (XML_ERROR_SYNTAX ("create_target",
+                                    "The elevate credential requires"
+                                    " an SSH credential"));
+                log_event_fail ("target", "Target", NULL, "created");
+                break;
+              case 15:
+                SEND_TO_CLIENT_OR_FAIL
+                 (XML_ERROR_SYNTAX ("create_target",
+                                    "The elevate credential must be"
+                                    " different from the SSH credential"));
                 log_event_fail ("target", "Target", NULL, "created");
                 break;
               case 99:
@@ -21731,6 +21828,7 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
       CLOSE (CLIENT_CREATE_TARGET, PORT_RANGE);
       CLOSE (CLIENT_CREATE_TARGET, SSH_CREDENTIAL);
       CLOSE (CLIENT_CREATE_TARGET, SSH_LSC_CREDENTIAL);
+      CLOSE (CLIENT_CREATE_TARGET, SSH_ELEVATE_CREDENTIAL);
       CLOSE (CLIENT_CREATE_TARGET, SMB_CREDENTIAL);
       CLOSE (CLIENT_CREATE_TARGET, SMB_LSC_CREDENTIAL);
       CLOSE (CLIENT_CREATE_TARGET, SNMP_CREDENTIAL);
@@ -21766,17 +21864,22 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
               int ret;
               gchar *name, *comment;
               task_t new_task;
+              int alterable;
 
               name = task_name (create_task_data->task);
               comment = task_comment (create_task_data->task);
+
+              if(create_task_data->alterable)
+                alterable = strcmp (create_task_data->alterable, "0") ? 1 : 0;
+              else
+                alterable = -1;
+
               ret = copy_task (name,
                                comment,
                                create_task_data->copy,
-                               (create_task_data->alterable
-                                && strcmp (create_task_data->alterable, "0"))
-                                ? 1
-                                : 0,
+                               alterable,
                                &new_task);
+
               g_free (name);
               g_free (comment);
               /* Remove the task that was created while parsing elements. */
@@ -24143,6 +24246,7 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
                          modify_target_data->ssh_credential_id
                           ? modify_target_data->ssh_credential_id
                           : modify_target_data->ssh_lsc_credential_id,
+                         modify_target_data->ssh_elevate_credential_id,
                          modify_target_data->ssh_credential_id
                           ? modify_target_data->ssh_port
                           : modify_target_data->ssh_lsc_port,
@@ -24365,6 +24469,43 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
                 log_event_fail ("target", "Target",
                                 modify_target_data->target_id, "modified");
                 break;
+              case 22:
+                log_event_fail ("target", "Target",
+                                modify_target_data->target_id,
+                                "modified");
+                if (send_find_error_to_client
+                     ("modify_target", "Credential",
+                      modify_target_data->ssh_elevate_credential_id,
+                      gmp_parser))
+                  {
+                    error_send_to_client (error);
+                    return;
+                  }
+                break;
+              case 23:
+                SEND_TO_CLIENT_OR_FAIL
+                 (XML_ERROR_SYNTAX ("modify_target",
+                                    "ELEVATE credential must be of type"
+                                    " 'up'"));
+                log_event_fail ("target", "Target",
+                                modify_target_data->target_id, "modified");
+                break;
+              case 24:
+                SEND_TO_CLIENT_OR_FAIL
+                 (XML_ERROR_SYNTAX ("modify_target",
+                                    "The elevate credential requires"
+                                    " an SSH credential"));
+                log_event_fail ("target", "Target",
+                                modify_target_data->target_id, "modified");
+                break;
+              case 25:
+                SEND_TO_CLIENT_OR_FAIL
+                 (XML_ERROR_SYNTAX ("modify_target",
+                                    "The elevate credential must be different"
+                                    " from the SSH credential"));
+                log_event_fail ("target", "Target",
+                                modify_target_data->target_id, "modified");
+                break;
               case 99:
                 SEND_TO_CLIENT_OR_FAIL
                  (XML_ERROR_SYNTAX ("modify_target",
@@ -24406,6 +24547,7 @@ gmp_xml_handle_end_element (/* unused */ GMarkupParseContext* context,
       CLOSE (CLIENT_MODIFY_TARGET, PORT_LIST);
       CLOSE (CLIENT_MODIFY_TARGET, SSH_CREDENTIAL);
       CLOSE (CLIENT_MODIFY_TARGET, SSH_LSC_CREDENTIAL);
+      CLOSE (CLIENT_MODIFY_TARGET, SSH_ELEVATE_CREDENTIAL);
       CLOSE (CLIENT_MODIFY_TARGET, SMB_CREDENTIAL);
       CLOSE (CLIENT_MODIFY_TARGET, SMB_LSC_CREDENTIAL);
       CLOSE (CLIENT_MODIFY_TARGET, SNMP_CREDENTIAL);

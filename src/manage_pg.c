@@ -38,6 +38,16 @@
  */
 #define G_LOG_DOMAIN "md manage"
 
+/**
+ * @brief Database superuser role
+ */
+#define DB_SUPERUSER_ROLE "dba"
+
+
+/* Headers */
+int
+check_db_extensions ();
+
 
 /* Session. */
 
@@ -186,17 +196,12 @@ manage_create_sql_functions ()
   if (created)
     return 0;
 
-  if (sql_int ("SELECT count (*) FROM pg_available_extensions"
-               " WHERE name = 'uuid-ossp' AND installed_version IS NOT NULL;")
-      == 0)
-    {
-      g_warning ("%s: PostgreSQL extension uuid-ossp required", __func__);
-      return -1;
-    }
+  if (check_db_extensions ())
+    return -1;
 
   /* Functions in C. */
 
-  sql ("SET role dba;");
+  sql ("SET ROLE \"%s\";", DB_SUPERUSER_ROLE);
 
   sql ("CREATE OR REPLACE FUNCTION hosts_contains (text, text)"
        " RETURNS boolean"
@@ -863,7 +868,8 @@ manage_create_sql_functions ()
        "            AND (is_get OR name = arg_permission)) > 0;"
        "  RETURN ret;"
        " END;"
-       "$$ LANGUAGE plpgsql;");
+       "$$ LANGUAGE plpgsql"
+       " STABLE COST 1000;");
 
   /* Functions in SQL. */
 
@@ -879,6 +885,35 @@ manage_create_sql_functions ()
                sql_database (),
                sql_database ()))
     {
+      char *quoted_collation;
+      if (get_vt_verification_collation ())
+        {
+          gchar *string_quoted_collation;
+          string_quoted_collation
+            = sql_quote (get_vt_verification_collation ());
+          quoted_collation = sql_string ("SELECT quote_ident('%s')",
+                                         string_quoted_collation);
+          g_free (string_quoted_collation);
+        }
+      else
+        {
+          char *encoding;
+          encoding = sql_string ("SHOW server_encoding;");
+
+          if (g_str_match_string ("UTF-8", encoding, 0)
+              || g_str_match_string ("UTF8", encoding, 0))
+            quoted_collation = strdup ("ucs_basic");
+          else
+            // quote C collation because this seems to be required
+            // without quoting it an error is raised
+            // other collations don't need quoting
+            quoted_collation = strdup ("\"C\"");
+
+          free (encoding);
+        }
+
+      g_debug ("Using vt verification collation %s", quoted_collation);
+
       sql ("CREATE OR REPLACE FUNCTION vts_verification_str ()"
            " RETURNS text AS $$"
            " WITH pref_str AS ("
@@ -897,18 +932,22 @@ manage_create_sql_functions ()
            "             || coalesce (string_agg"
            "                            (pref_str.pref, ''"
            "                             ORDER BY (pref_id"
-           "                                       COLLATE ucs_basic)),"
+           "                                       COLLATE %s)),"
            "                          ''))"
            "          AS vt_string"
            "   FROM nvts"
            "   LEFT JOIN pref_str ON nvts.oid = pref_str.oid"
            "   GROUP BY nvts.oid"
-           "   ORDER BY (nvts.oid COLLATE ucs_basic) ASC"
+           "   ORDER BY (nvts.oid COLLATE %s) ASC"
            "  )"
            " SELECT coalesce (string_agg (nvt_str.vt_string, ''), '')"
            "   FROM nvt_str"
            "$$ LANGUAGE SQL"
-           " STABLE;");
+           " STABLE;",
+           quoted_collation,
+           quoted_collation);
+
+      g_free (quoted_collation);
     }
 
   sql ("CREATE OR REPLACE FUNCTION t () RETURNS boolean AS $$"
@@ -2956,47 +2995,56 @@ check_db_sequences ()
 }
 
 /**
- * @brief Check if an extension is installed.
+ * @brief Check if an extension is available and can be installed.
  * 
- * @param[in]  extname  Name of the extension to check.
+ * @param[in]  name  Name of the extension to check.
  *
- * @return TRUE extension is installed, FALSE otherwise.
+ * @return TRUE extension is available, FALSE otherwise.
  */
 static gboolean
-db_extension_installed (const char *extname)
+db_extension_available (const char *name)
 {
-  if (sql_int ("SELECT count(*) FROM pg_extension WHERE extname = '%s'",
-               extname))
+  if (sql_int ("SELECT count(*) FROM pg_available_extensions"
+               " WHERE name = '%s'",
+               name))
     {
-      g_debug ("%s: Extension '%s' is installed.",
-                 __func__, extname);
+      g_debug ("%s: Extension '%s' is available.",
+                 __func__, name);
       return TRUE;
     }
   else
     {
-      g_message ("%s: Extension '%s' is not installed.",
-                 __func__, extname);
+      g_message ("%s: Extension '%s' is not available.",
+                 __func__, name);
       return FALSE;
     }
 }
 
 /**
- * @brief Check if all extensions are installed.
+ * @brief Ensure all extensions are installed.
  *
  * @return 0 success, 1 extension missing.
  */
 int
 check_db_extensions ()
 {
-  if (db_extension_installed ("uuid-ossp")
-      && db_extension_installed ("pgcrypto"))
+  if (db_extension_available ("uuid-ossp")
+      && db_extension_available ("pgcrypto"))
     {
-      g_debug ("%s: All required extensions are installed.", __func__);
+      g_debug ("%s: All required extensions are available.", __func__);
+
+      // Switch to superuser role and try to install extensions.
+      sql ("SET ROLE \"%s\";", DB_SUPERUSER_ROLE);
+      
+      sql ("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"");
+      sql ("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\"");
+
+      sql ("RESET ROLE;");
       return 0;
     }
   else
     {
-      g_warning ("%s: A required extension is not installed.", __func__);
+      g_warning ("%s: A required extension is not available.", __func__);
       return 1;
     }
 }

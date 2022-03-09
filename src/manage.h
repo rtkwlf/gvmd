@@ -1256,6 +1256,9 @@ create_report (array_t*, const char *, const char *, const char *, const char *,
 void
 report_add_result (report_t, result_t);
 
+void
+report_add_results_array (report_t, GArray *);
+
 char*
 report_uuid (report_t);
 
@@ -1585,9 +1588,10 @@ find_target_with_permission (const char *, target_t *, const char *);
 
 int
 create_target (const char*, const char*, const char*, const char*, const char*,
-               const char *, const char*, credential_t, const char*,
-               credential_t, credential_t, credential_t, const char *,
-               const char *, const char *, const char *, target_t*);
+               const char *, const char*, credential_t, credential_t,
+               const char *, credential_t, credential_t, credential_t,
+               const char *, const char *, const char *, const char *,
+               target_t*);
 
 int
 copy_target (const char*, const char*, const char *, target_t*);
@@ -1595,7 +1599,7 @@ copy_target (const char*, const char*, const char *, target_t*);
 int
 modify_target (const char*, const char*, const char*, const char*, const char*,
                const char*, const char*, const char*, const char*, const char*,
-               const char*, const char*, const char*, const char*,
+               const char*, const char*, const char*, const char*, const char*,
                const char*);
 
 int
@@ -1644,6 +1648,9 @@ int
 target_iterator_snmp_credential (iterator_t*);
 
 int
+target_iterator_ssh_elevate_credential (iterator_t*);
+
+int
 target_iterator_ssh_trash (iterator_t*);
 
 int
@@ -1654,6 +1661,9 @@ target_iterator_esxi_trash (iterator_t*);
 
 int
 target_iterator_snmp_trash (iterator_t*);
+
+int
+target_iterator_ssh_elevate_trash (iterator_t*);
 
 const char*
 target_iterator_allow_simultaneous_ips (iterator_t*);
@@ -2708,6 +2718,12 @@ void
 manage_sync (sigset_t *, int (*fork_update_nvt_cache) (), gboolean);
 
 int
+manage_rebuild_gvmd_data_from_feed (const char *,
+                                    GSList *,
+                                    const db_conn_info_t *,
+                                    gchar **);
+
+int
 manage_schedule (manage_connection_forker_t,
                  gboolean,
                  sigset_t *);
@@ -3756,5 +3772,13 @@ manage_optimize (GSList *, const db_conn_info_t *, const gchar *);
 
 int
 sql_cancel ();
+
+
+/* General settings */
+const char *
+get_vt_verification_collation ();
+
+void
+set_vt_verification_collation (const char *);
 
 #endif /* not _GVMD_MANAGE_H */

@@ -90,6 +90,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <execinfo.h>
 
 #include <gvm/base/pidfile.h>
 #include <gvm/base/pwpolicy.h>
@@ -102,6 +103,7 @@
 #include "manage.h"
 #include "manage_sql_nvts.h"
 #include "manage_sql_secinfo.h"
+#include "manage_authentication.h"
 #include "gmpd.h"
 #include "utils.h"
 
@@ -180,6 +182,13 @@
  * @brief Default value for client_watch_interval
  */
 #define DEFAULT_CLIENT_WATCH_INTERVAL 1
+
+/**
+ * @brief Maximum number of frames in backtrace.
+ *
+ * For debugging backtrace in \ref handle_sigabrt and \ref handle_sigsegv.
+ */
+#define BA_SIZE 100
 
 /**
  * @brief Interval in seconds to check whether client connection was closed.
@@ -924,19 +933,8 @@ cleanup ()
   if (log_config) log_config_free ();
 
   /* Delete pidfile if this process is the parent. */
-  if (is_parent == 1) pidfile_remove ("gvmd");
+  if (is_parent == 1) pidfile_remove (GVMD_PID_PATH);
 }
-
-#ifndef NDEBUG
-#include <execinfo.h>
-
-/**
- * @brief Maximum number of frames in backtrace.
- *
- * For debugging backtrace in \ref handle_sigabrt.
- */
-#define BA_SIZE 100
-#endif
 
 /**
  * @brief Handle a SIGABRT signal.
@@ -951,7 +949,6 @@ handle_sigabrt (int given_signal)
   if (in_sigabrt) _exit (EXIT_FAILURE);
   in_sigabrt = 1;
 
-#ifndef NDEBUG
   void *frames[BA_SIZE];
   int frame_count, index;
   char **frames_text;
@@ -965,9 +962,8 @@ handle_sigabrt (int given_signal)
       frame_count = 0;
     }
   for (index = 0; index < frame_count; index++)
-    g_debug ("%s", frames_text[index]);
+    g_debug ("BACKTRACE: %s", frames_text[index]);
   free (frames_text);
-#endif
 
   manage_cleanup_process_error (given_signal);
   cleanup ();
@@ -997,6 +993,22 @@ handle_termination_signal (int signal)
 static void
 handle_sigsegv (/* unused */ int given_signal)
 {
+  void *frames[BA_SIZE];
+  int frame_count, index;
+  char **frames_text;
+
+  /* Print a backtrace. */
+  frame_count = backtrace (frames, BA_SIZE);
+  frames_text = backtrace_symbols (frames, frame_count);
+  if (frames_text == NULL)
+    {
+      perror ("backtrace symbols");
+      frame_count = 0;
+    }
+  for (index = 0; index < frame_count; index++)
+    g_debug ("BACKTRACE: %s", frames_text[index]);
+  free (frames_text);
+
   manage_cleanup_process_error (given_signal);
 
   /* This previously called "cleanup", but it seems that the regular manager
@@ -1675,6 +1687,53 @@ manager_listen (const char *address_str_unix, const char *address_str_tls,
 }
 
 /**
+ * @brief parse_authentication_goption_arg is used to parse authentication 
+ * parameter.
+ *
+ * @param[in] opt the parameter (e.g. --pepper).
+ * @param[in] arg the value of the parameter.
+ * @param[in] data the pointer of the data to set (unused).
+ * @param[in] err used to set error string on failure. 
+ *
+ * @return TRUE success, FALSE on failure.
+ **/
+static gboolean
+parse_authentication_goption_arg (const gchar *opt, const gchar *arg,
+                                  gpointer data, GError **err)
+{
+  if (strcmp (opt, "--pepper") == 0)
+    {
+      if (manage_authentication_setup(arg, strlen(arg), 0, NULL) != GMA_SUCCESS)
+        {
+          g_set_error (
+            err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+            "Unable to set given pepper (%s)",
+            arg);
+          return FALSE;
+        }
+    }
+  else if (strcmp (opt, "--hashcount") == 0)
+    {
+      if (manage_authentication_setup(NULL, 0, strtol(arg, NULL, 0), NULL) != GMA_SUCCESS)
+        {
+          g_set_error (
+            err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+            "Unable to set hash_count (%s)",
+            arg);
+          return FALSE;
+        }
+    }
+  else
+    {
+      g_set_error (err, G_OPTION_ERROR, G_OPTION_ERROR_UNKNOWN_OPTION,
+                   "Unknown authentication option: %s.", opt);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+/**
  * @brief Entry point to the manager.
  *
  * \if STATIC
@@ -1749,12 +1808,15 @@ gvmd (int argc, char** argv)
   static gchar *rc_name = NULL;
   static gchar *relay_mapper = NULL;
   static gboolean rebuild = FALSE;
+  static gchar *rebuild_gvmd_data = NULL;
   static gboolean rebuild_scap = FALSE;
   static gchar *role = NULL;
   static gchar *disable = NULL;
   static gchar *value = NULL;
   static gchar *feed_lock_path = NULL;
   static int feed_lock_timeout = 0;
+  static gchar *vt_verification_collation = NULL;
+
   GError *error = NULL;
   lockfile_t lockfile_checking, lockfile_serving;
   GOptionContext *option_context;
@@ -1928,7 +1990,8 @@ gvmd (int argc, char** argv)
           "<password>" },
         { "optimize", '\0', 0, G_OPTION_ARG_STRING,
           &optimize,
-          "Run an optimization: vacuum, analyze, cleanup-config-prefs,"
+          "Run an optimization: vacuum, analyze, add-feed-permissions,"
+          " cleanup-config-prefs, cleanup-feed-permissions,"
           " cleanup-port-names, cleanup-report-formats, cleanup-result-encoding,"
           " cleanup-result-nvts, cleanup-result-severities,"
           " cleanup-schedule-times, migrate-relay-sensors,"
@@ -1955,6 +2018,12 @@ gvmd (int argc, char** argv)
           &rebuild,
           "Remove NVT db, and rebuild it from the scanner.",
           NULL },
+        { "rebuild-gvmd-data", '\0', 0, G_OPTION_ARG_STRING,
+          &rebuild_gvmd_data,
+          "Reload all gvmd data objects of a given types from feed."
+          " The types must be \"all\" or a comma-separated of the following:"
+          " \"configs\", \"port_lists\" and \"report_formats\"",
+          "<types>" },
         { "rebuild-scap", '\0', 0, G_OPTION_ARG_NONE,
           &rebuild_scap,
           "Rebuild all SCAP data.",
@@ -2045,10 +2114,24 @@ gvmd (int argc, char** argv)
           &verify_scanner,
           "Verify scanner <scanner-uuid> and exit.",
           "<scanner-uuid>" },
+        { "pepper", '\0', 0, G_OPTION_ARG_CALLBACK,
+           parse_authentication_goption_arg,
+          "Use <pepper> to statically enhance salt of password hashes (maximal 4 character).",
+          "<pepper>" },
+        { "hashcount", '\0', 0, G_OPTION_ARG_CALLBACK,
+           parse_authentication_goption_arg,
+          "Use <hashcount> to enhance the computational cost of creating a password hash.",
+          "<hashcount>" },
         { "version", '\0', 0, G_OPTION_ARG_NONE,
           &print_version,
           "Print version and exit.",
           NULL },
+        { "vt-verification-collation", '\0', 0, G_OPTION_ARG_STRING,
+          &vt_verification_collation,
+          "Set collation for VT verification to <collation>, omit or leave"
+          " empty to choose automatically. Should be 'ucs_default' if DB uses"
+          " UTF-8 or 'C' for single-byte encodings.",
+          "<collation>" },
         { NULL }
       };
 
@@ -2108,6 +2191,9 @@ gvmd (int argc, char** argv)
 
   set_secinfo_commit_size (secinfo_commit_size);
 
+  /* Set VT verification collation override */
+  set_vt_verification_collation (vt_verification_collation);
+
   /* Check which type of socket to use. */
 
   if (manager_address_string_unix == NULL)
@@ -2117,7 +2203,7 @@ gvmd (int argc, char** argv)
       else
         {
           use_tls = 0;
-          manager_address_string_unix = g_build_filename (GVM_RUN_DIR,
+          manager_address_string_unix = g_build_filename (GVMD_RUN_DIR,
                                                           "gvmd.sock",
                                                           NULL);
         }
@@ -2325,7 +2411,7 @@ gvmd (int argc, char** argv)
             g_info ("   Migration succeeded.");
             return EXIT_SUCCESS;
           case 1:
-            g_warning ("%s: databases are already at the supported version",
+            g_info ("%s: databases are already at the supported version",
                        __func__);
             return EXIT_SUCCESS;
           case 2:
@@ -2428,6 +2514,34 @@ gvmd (int argc, char** argv)
           printf ("Failed to rebuild NVT cache.\n");
           return EXIT_FAILURE;
         }
+      return EXIT_SUCCESS;
+    }
+  
+  if (rebuild_gvmd_data)
+    {
+      int ret;
+      gchar *error_msg;
+      
+      error_msg = NULL;
+
+      proctitle_set ("gvmd: --rebuild-gvmd-data");
+
+      if (option_lock (&lockfile_checking))
+        return EXIT_FAILURE;
+
+      ret = manage_rebuild_gvmd_data_from_feed (rebuild_gvmd_data,
+                                                log_config,
+                                                &database,
+                                                &error_msg);
+      if (ret)
+        {
+          g_warning ("Failed to rebuild gvmd data: %s\n", error_msg);
+          printf ("Failed to rebuild gvmd data: %s\n", error_msg);
+          g_free (error_msg);
+          log_config_free ();
+          return EXIT_FAILURE;
+        }
+      log_config_free ();
       return EXIT_SUCCESS;
     }
 
@@ -2863,7 +2977,7 @@ gvmd (int argc, char** argv)
 
   /* Set our pidfile. */
 
-  if (pidfile_create ("gvmd")) exit (EXIT_FAILURE);
+  if (pidfile_create (GVMD_PID_PATH)) exit (EXIT_FAILURE);
 
   /* Setup global variables. */
 

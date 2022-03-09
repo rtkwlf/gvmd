@@ -172,7 +172,8 @@ int
 manage_set_config_nvts (config_t, const char*, GPtrArray*);
 
 int
-manage_set_config_families (config_t, GPtrArray*, GPtrArray*, GPtrArray*, int);
+manage_set_config_families (config_t, GPtrArray*, GPtrArray*, GPtrArray*, int,
+                            gchar **);
 
 void
 init_config_timeout_iterator (iterator_t*, config_t);
@@ -195,5 +196,11 @@ configs_feed_dir_exists ();
 
 void
 manage_sync_configs ();
+
+int
+manage_rebuild_configs ();
+
+gboolean
+should_sync_configs ();
 
 #endif /* not _GVMD_MANAGE_CONFIGS_H */

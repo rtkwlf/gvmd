@@ -2087,16 +2087,19 @@ launch_osp_task (task_t task, target_t target, const char *scan_id,
 static osp_credential_t *
 target_osp_ssh_credential (target_t target)
 {
-  credential_t credential;
+  credential_t credential, ssh_elevate_credential;
   credential = target_ssh_credential (target);
+  ssh_elevate_credential = target_ssh_elevate_credential (target);
+
   if (credential)
     {
-      iterator_t iter;
+      iterator_t iter, ssh_elevate_iter;
       const char *type;
       char *ssh_port;
       osp_credential_t *osp_credential;
 
       init_credential_iterator_one (&iter, credential);
+
       if (!next (&iter))
         {
           g_warning ("%s: SSH Credential not found.", __func__);
@@ -2121,6 +2124,7 @@ target_osp_ssh_credential (target_t target)
       osp_credential_set_auth_data (osp_credential,
                                     "password",
                                     credential_iterator_password (&iter));
+
       if (strcmp (type, "usk") == 0)
         {
           const char *private_key = credential_iterator_private_key (&iter);
@@ -2129,8 +2133,40 @@ target_osp_ssh_credential (target_t target)
           osp_credential_set_auth_data (osp_credential,
                                         "private", base64);
           g_free (base64);
-
         }
+
+      if(ssh_elevate_credential)
+        {
+          const char *elevate_type;
+
+          init_credential_iterator_one (&ssh_elevate_iter,
+                                        ssh_elevate_credential);
+          if (!next (&ssh_elevate_iter))
+            {
+              g_warning ("%s: SSH Elevate Credential not found.", __func__);
+              cleanup_iterator (&ssh_elevate_iter);
+              osp_credential_free(osp_credential);
+              return NULL;
+            }
+          elevate_type = credential_iterator_type (&ssh_elevate_iter);
+          if (strcmp (elevate_type, "up"))
+            {
+              g_warning ("%s: SSH Elevate Credential not of type up", __func__);
+              cleanup_iterator (&ssh_elevate_iter);
+              osp_credential_free(osp_credential);
+              return NULL;
+            }
+          osp_credential_set_auth_data (osp_credential,
+                                        "priv_username",
+                                        credential_iterator_login
+                                          (&ssh_elevate_iter));
+          osp_credential_set_auth_data (osp_credential,
+                                        "priv_password",
+                                        credential_iterator_password
+                                          (&ssh_elevate_iter));
+          cleanup_iterator (&ssh_elevate_iter);
+        }
+
       cleanup_iterator (&iter);
       return osp_credential;
     }
@@ -2322,6 +2358,15 @@ prepare_osp_scan_for_resume (task_t task, const char *scan_id, char **error)
     }
   status = osp_get_scan_status_ext (connection, status_opts, error);
 
+  /* Reset connection. */
+  osp_connection_close (connection);
+  connection = osp_scanner_connect (task_scanner (task));
+  if (!connection)
+    {
+      *error = g_strdup ("Could not connect to Scanner");
+      return -1;
+    }
+
   if (status == OSP_SCAN_STATUS_ERROR)
     {
       if (g_str_has_prefix (*error, "Failed to find scan"))
@@ -2342,10 +2387,9 @@ prepare_osp_scan_for_resume (task_t task, const char *scan_id, char **error)
         }
     }
   else if (status == OSP_SCAN_STATUS_RUNNING
-           || status == OSP_SCAN_STATUS_QUEUED
-           || status == OSP_SCAN_STATUS_FINISHED)
+           || status == OSP_SCAN_STATUS_QUEUED)
     {
-      g_debug ("%s: Scan %s queued, running or finished", __func__, scan_id);
+      g_debug ("%s: Scan %s queued or running", __func__, scan_id);
       /* It would be possible to simply continue getting the results
        * from the scanner, but gvmd may have crashed while receiving
        * or storing the results, so some may be missing. */
@@ -2364,9 +2408,26 @@ prepare_osp_scan_for_resume (task_t task, const char *scan_id, char **error)
       trim_partial_report (global_current_report);
       return 1;
     }
-  else if (status == OSP_SCAN_STATUS_STOPPED)
+  else if (status == OSP_SCAN_STATUS_FINISHED)
     {
-      g_debug ("%s: Scan %s stopped", __func__, scan_id);
+      /* OSP can't stop an already finished/interrupted scan,
+       * but it must be delete to be resumed. */
+      g_debug ("%s: Scan %s finished", __func__, scan_id);
+      if (osp_delete_scan (connection, scan_id))
+        {
+          *error = g_strdup ("Failed to delete old report");
+          osp_connection_close (connection);
+          return -1;
+        }
+      osp_connection_close (connection);
+      trim_partial_report (global_current_report);
+      return 1;
+    }
+  else if (status == OSP_SCAN_STATUS_STOPPED
+           || status == OSP_SCAN_STATUS_INTERRUPTED)
+    {
+      g_debug ("%s: Scan %s stopped or interrupted",
+               __func__, scan_id);
       if (osp_delete_scan (connection, scan_id))
         {
           *error = g_strdup ("Failed to delete old report");
@@ -2452,10 +2513,10 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
 {
   osp_connection_t *connection;
   char *hosts_str, *ports_str, *exclude_hosts_str, *finished_hosts_str;
-  gchar *clean_hosts, *clean_exclude_hosts;
+  gchar *clean_hosts, *clean_exclude_hosts, *clean_finished_hosts_str;
   int alive_test, reverse_lookup_only, reverse_lookup_unify;
   osp_target_t *osp_target;
-  GSList *osp_targets, *vts, *vt_groups;
+  GSList *osp_targets, *vts;
   GHashTable *vts_hash_table;
   osp_credential_t *ssh_credential, *smb_credential, *esxi_credential;
   osp_credential_t *snmp_credential;
@@ -2483,9 +2544,13 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
       else if (ret == -1)
         return -1;
       finished_hosts_str = report_finished_hosts_str (global_current_report);
+      clean_finished_hosts_str = clean_hosts_string (finished_hosts_str);
     }
   else
-    finished_hosts_str = NULL;
+    {
+      finished_hosts_str = NULL;
+      clean_finished_hosts_str = NULL;
+    }
 
   /* Set up target(s) */
   hosts_str = target_hosts (target);
@@ -2509,10 +2574,10 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
       gchar *new_exclude_hosts;
 
       new_exclude_hosts = g_strdup_printf ("%s,%s",
-                                           exclude_hosts_str,
-                                           finished_hosts_str);
-      free (exclude_hosts_str);
-      exclude_hosts_str = new_exclude_hosts;
+                                           clean_exclude_hosts,
+                                           clean_finished_hosts_str);
+      free (clean_exclude_hosts);
+      clean_exclude_hosts = new_exclude_hosts;
     }
 
   osp_target = osp_target_new (clean_hosts, ports_str, clean_exclude_hosts,
@@ -2527,6 +2592,7 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
   free (finished_hosts_str);
   g_free (clean_hosts);
   g_free (clean_exclude_hosts);
+  g_free (clean_finished_hosts_str);
   osp_targets = g_slist_append (NULL, osp_target);
 
   ssh_credential = target_osp_ssh_credential (target);
@@ -2596,7 +2662,6 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
 
   /* Setup vulnerability tests (without preferences) */
   vts = NULL;
-  vt_groups = NULL;
   vts_hash_table
     = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                              /* Value is freed in vts list. */
@@ -2606,18 +2671,7 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
   while (next (&families))
     {
       const char *family = family_iterator_name (&families);
-      if (family && config_family_entire_and_growing (config, family))
-        {
-          gchar *filter;
-          osp_vt_group_t *vt_group;
-
-          filter = g_strdup_printf ("family=%s", family);
-          vt_group = osp_vt_group_new (filter);
-          g_free (filter);
-
-          vt_groups = g_slist_prepend (vt_groups, vt_group);
-        }
-      else if (family)
+      if (family)
         {
           iterator_t nvts;
           init_nvt_iterator (&nvts, 0, config, family, NULL, 1, NULL);
@@ -2695,13 +2749,12 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
       g_slist_free_full (osp_targets, (GDestroyNotify) osp_target_free);
       // Credentials are freed with target
       g_slist_free_full (vts, (GDestroyNotify) osp_vt_single_free);
-      g_slist_free_full (vt_groups, (GDestroyNotify) osp_vt_group_free);
       g_hash_table_destroy (scanner_options);
       return -1;
     }
 
   start_scan_opts.targets = osp_targets;
-  start_scan_opts.vt_groups = vt_groups;
+  start_scan_opts.vt_groups = NULL;
   start_scan_opts.vts = vts;
   start_scan_opts.scanner_params = scanner_options;
   start_scan_opts.scan_id = scan_id;
@@ -2714,7 +2767,6 @@ launch_osp_openvas_task (task_t task, target_t target, const char *scan_id,
   g_slist_free_full (osp_targets, (GDestroyNotify) osp_target_free);
   // Credentials are freed with target
   g_slist_free_full (vts, (GDestroyNotify) osp_vt_single_free);
-  g_slist_free_full (vt_groups, (GDestroyNotify) osp_vt_group_free);
   g_hash_table_destroy (scanner_options);
   return ret;
 }
@@ -2857,7 +2909,7 @@ fork_osp_scan_handler (task_t task, target_t target, int from,
   manage_session_init (current_credentials.uuid);
 
   if (scanner_type (task_scanner (task)) == SCANNER_TYPE_OPENVAS
-      || scanner_type (task_scanner (task) == SCANNER_TYPE_OSP_SENSOR))
+      || scanner_type (task_scanner (task)) == SCANNER_TYPE_OSP_SENSOR)
     {
       rc = launch_osp_openvas_task (task, target, report_id, from, &error);
     }
@@ -3030,9 +3082,11 @@ cve_scan_host (task_t task, report_t report, gvm_host_t *gvm_host)
         {
           iterator_t prognosis;
           int prognosis_report_host, start_time;
+          GArray *results;
 
           /* Add report_host with prognosis results and host details. */
 
+          results = g_array_new (TRUE, TRUE, sizeof (result_t));
           start_time = time (NULL);
           prognosis_report_host = 0;
           init_host_prognosis_iterator (&prognosis, report_host);
@@ -3066,6 +3120,13 @@ cve_scan_host (task_t task, report_t report, gvm_host_t *gvm_host)
                 {
                   const char *location;
                   location = app_locations_iterator_location (&locations_iter);
+
+                  if (location == NULL)
+                    {
+                      g_warning ("%s: Location is null for ip %s, app %s",
+                                 __func__, ip, app);
+                      continue;
+                    }
 
                   if (locations->len)
                     g_string_append (locations, ", ");
@@ -3105,11 +3166,14 @@ cve_scan_host (task_t task, report_t report, gvm_host_t *gvm_host)
               result = make_cve_result (task, ip, cve, severity, desc);
               g_free (desc);
 
-              report_add_result (report, result);
+              g_array_append_val (results, result);
 
               g_string_free (locations, TRUE);
             }
           cleanup_iterator (&prognosis);
+
+          report_add_results_array (report, results);
+          g_array_free (results, TRUE);
 
           if (prognosis_report_host)
             {
@@ -3964,19 +4028,21 @@ credential_full_type (const char* abbreviation)
  * @param[in]  end              The end time of the performance report.
  * @param[in]  titles           The end titles for the performance report.
  * @param[in]  performance_str  The performance string.
+ * @param[in]  error            The error message text, if any.
  *
- * @return 0 if successful, 4 could not connect to scanner,
- *         6 failed to get performance report, -1 error
+ * @return 0 if successful, 6 could not connect to scanner or failed to get
+ *         performance report
  */
 static int
 get_osp_performance_string (scanner_t scanner, int start, int end,
-                            const char *titles, gchar **performance_str)
+                            const char *titles, gchar **performance_str,
+                            gchar **error)
 {
   char *host, *ca_pub, *key_pub, *key_priv;
   int port;
-  osp_connection_t *connection;
+  osp_connection_t *connection = NULL;
   osp_get_performance_opts_t opts;
-  gchar *error;
+  int connection_retry, return_value;
 
   host = scanner_host (scanner);
   port = scanner_port (scanner);
@@ -3984,7 +4050,15 @@ get_osp_performance_string (scanner_t scanner, int start, int end,
   key_pub = scanner_key_pub (scanner);
   key_priv = scanner_key_priv (scanner);
 
+  connection_retry = get_scanner_connection_retry ();
   connection = osp_connect_with_data (host, port, ca_pub, key_pub, key_priv);
+  while (connection == NULL && connection_retry > 0)
+    {
+      sleep(1);
+      connection = osp_connect_with_data (host, port,
+                                          ca_pub, key_pub, key_priv);
+      connection_retry--;
+    }
 
   free (host);
   free (ca_pub);
@@ -3992,26 +4066,88 @@ get_osp_performance_string (scanner_t scanner, int start, int end,
   free (key_priv);
 
   if (connection == NULL)
-    return 4;
+    {
+      *error = g_strdup("Could not connect to scanner");
+      return 6;
+    }
 
   opts.start = start;
   opts.end = end;
   opts.titles = g_strdup (titles);
-  error = NULL;
 
-  if (osp_get_performance_ext (connection, opts, performance_str, &error))
+  return_value = osp_get_performance_ext (connection, opts,
+                                          performance_str, error);
+
+  if (return_value)
     {
       osp_connection_close (connection);
-      g_warning ("Error getting OSP performance report: %s", error);
-      g_free (error);
+      g_warning ("Error getting OSP performance report: %s", *error);
       g_free (opts.titles);
-      return 4;
+      return 6;
     }
 
   osp_connection_close (connection);
   g_free (opts.titles);
 
   return 0;
+}
+
+/**
+ * @brief Header for fallback system report.
+ */
+#define FALLBACK_SYSTEM_REPORT_HEADER \
+"This is the most basic, fallback report.  The system can be configured to\n" \
+"produce more powerful reports.  Please contact your system administrator\n" \
+"for more information.\n\n"
+
+/**
+ * @brief Get the fallback report as a string.
+ *
+ * @param[in]  fallback_report  The string for the fallback report.
+ */
+static void
+get_fallback_report_string(GString *fallback_report)
+{ 
+  int ret;
+  double load[3];
+  GError *get_error;
+  gchar *output;
+  gsize output_len;
+
+  g_string_append_printf (fallback_report, FALLBACK_SYSTEM_REPORT_HEADER);
+  
+  ret = getloadavg (load, 3);
+  if (ret == 3)
+    {
+      g_string_append_printf (fallback_report,
+                              "Load average for past minute:     %.1f\n",
+                              load[0]);
+      g_string_append_printf (fallback_report,
+                              "Load average for past 5 minutes:  %.1f\n",
+                              load[1]);
+      g_string_append_printf (fallback_report,
+                              "Load average for past 15 minutes: %.1f\n",
+                              load[2]);
+    }
+  else
+    g_string_append (fallback_report, "Error getting load averages.\n");
+
+  get_error = NULL;
+  g_file_get_contents ("/proc/meminfo",
+                       &output,
+                       &output_len,
+                       &get_error);
+  if (get_error)
+    g_error_free (get_error);
+  else
+    {
+      gchar *safe;
+      g_string_append (fallback_report, "\n/proc/meminfo:\n\n");
+      safe = g_markup_escape_text (output, strlen (output));
+      g_free (output);
+      g_string_append (fallback_report, safe);
+      g_free (safe);
+    }
 }
 
 /**
@@ -4039,6 +4175,7 @@ get_system_report_types (const char *required_type, gchar ***start,
 {
   gchar *astdout = NULL;
   gchar *astderr = NULL;
+  gchar *slave_error = NULL;
   GError *err = NULL;
   gint exit_status;
 
@@ -4055,10 +4192,14 @@ get_system_report_types (const char *required_type, gchar ***start,
         return 2;
 
       // Assume OSP scanner
-      ret = get_osp_performance_string (slave, 0, 0, "titles", &astdout);
+      ret = get_osp_performance_string (slave, 0, 0, "titles",
+                                        &astdout, &slave_error);
 
       if (ret)
-        return ret;
+        {
+          g_free (slave_error);
+          return ret;
+        }
     }
   else
     {
@@ -4099,6 +4240,7 @@ get_system_report_types (const char *required_type, gchar ***start,
               *types = NULL;
               g_free (astdout);
               g_free (astderr);
+              g_free (slave_error);
               return -1;
             }
           *space = '\0';
@@ -4117,6 +4259,7 @@ get_system_report_types (const char *required_type, gchar ***start,
               *types = type;
               g_free (astdout);
               g_free (astderr);
+              g_free (slave_error);
               return 0;
             }
           type++;
@@ -4126,6 +4269,7 @@ get_system_report_types (const char *required_type, gchar ***start,
           /* Failed to find the single given type. */
           g_free (astdout);
           g_free (astderr);
+          g_free (slave_error);
           g_strfreev (*types);
           return 1;
         }
@@ -4135,6 +4279,7 @@ get_system_report_types (const char *required_type, gchar ***start,
 
   g_free (astdout);
   g_free (astderr);
+  g_free (slave_error);
   return 0;
 }
 
@@ -4226,14 +4371,6 @@ report_type_iterator_title (report_type_iterator_t* iterator)
   const char *name = *iterator->current;
   return name + strlen (name) + 1;
 }
-
-/**
- * @brief Header for fallback system report.
- */
-#define FALLBACK_SYSTEM_REPORT_HEADER \
-"This is the most basic, fallback report.  The system can be configured to\n" \
-"produce more powerful reports.  Please contact your system administrator\n" \
-"for more information.\n\n"
 
 /**
  * @brief Default duration for system reports.
@@ -4350,8 +4487,7 @@ parse_performance_params (const char *duration,
  *
  * @return 0 if successful (including failure to find report), -1 on error,
  *         2 could not find slave scanner,
- *         3 if used the fallback report,  4 could not connect to slave,
- *         5 authentication failed, 6 failed to get system report.
+ *         3 if used the fallback report or got an error message to print
  */
 int
 manage_system_report (const char *name, const char *duration,
@@ -4360,9 +4496,12 @@ manage_system_report (const char *name, const char *duration,
 {
   gchar *astdout = NULL;
   gchar *astderr = NULL;
+  gchar *slave_error = NULL;
   GError *err = NULL;
+  GString *buffer = NULL;
   gint exit_status;
-  gchar *command;
+  gint return_code = 0;
+  gchar *command = NULL;
   time_t cmd_param_1, cmd_param_2;
   int params_count;
 
@@ -4370,6 +4509,8 @@ manage_system_report (const char *name, const char *duration,
 
   parse_performance_params (duration, start_time, end_time,
                             &cmd_param_1, &cmd_param_2, &params_count);
+
+  *report = NULL;
 
   if (params_count == 0)
     return manage_system_report ("blank", NULL, NULL, NULL, NULL, report);
@@ -4390,100 +4531,88 @@ manage_system_report (const char *name, const char *duration,
           // only duration
           time_t now;
           now = time (NULL);
-          return get_osp_performance_string (slave,
-                                             now - cmd_param_1,
-                                             now,
-                                             name,
-                                             report);
+          return_code = get_osp_performance_string (slave,
+                                                    now - cmd_param_1,
+                                                    now,
+                                                    name,
+                                                    report,
+                                                    &slave_error);
         }
       else
         {
           // start and end time
-          return get_osp_performance_string (slave,
-                                             cmd_param_1,
-                                             cmd_param_2,
-                                             name,
-                                             report);
+          return_code = get_osp_performance_string (slave,
+                                                    cmd_param_1,
+                                                    cmd_param_2,
+                                                    name,
+                                                    report,
+                                                    &slave_error);
         }
     }
-
-  /* For simplicity, it's up to the command to do the base64 encoding. */
-  if (params_count == 1)
-    command = g_strdup_printf ("gvmcg %ld %s",
-                               cmd_param_1,
-                               name);
   else
-    command = g_strdup_printf ("gvmcg %ld %ld %s",
-                               cmd_param_1,
-                               cmd_param_2,
-                               name);
-
-  g_debug ("   command: %s", command);
-
-  if ((g_spawn_command_line_sync (command,
-                                  &astdout,
-                                  &astderr,
-                                  &exit_status,
-                                  &err)
-       == FALSE)
-      || (WIFEXITED (exit_status) == 0)
-      || WEXITSTATUS (exit_status))
     {
-      int ret;
-      double load[3];
-      GError *get_error;
-      gchar *output;
-      gsize output_len;
-      GString *buffer;
-
-      g_debug ("%s: gvmcg failed with %d", __func__, exit_status);
-      g_debug ("%s: stdout: %s", __func__, astdout);
-      g_debug ("%s: stderr: %s", __func__, astderr);
-      g_free (astdout);
-      g_free (astderr);
-      g_free (command);
-
-      buffer = g_string_new (FALLBACK_SYSTEM_REPORT_HEADER);
-
-      ret = getloadavg (load, 3);
-      if (ret == 3)
+      if (!g_find_program_in_path ("gvmcg"))
         {
-          g_string_append_printf (buffer,
-                                  "Load average for past minute:     %.1f\n",
-                                  load[0]);
-          g_string_append_printf (buffer,
-                                  "Load average for past 5 minutes:  %.1f\n",
-                                  load[1]);
-          g_string_append_printf (buffer,
-                                  "Load average for past 15 minutes: %.1f\n",
-                                  load[2]);
+          buffer = g_string_new ("");
+          get_fallback_report_string(buffer);
+          *report = g_string_free (buffer, FALSE);
+          return_code = 7;
         }
       else
-        g_string_append (buffer, "Error getting load averages.\n");
-
-      get_error = NULL;
-      g_file_get_contents ("/proc/meminfo",
-                           &output,
-                           &output_len,
-                           &get_error);
-      if (get_error)
-        g_error_free (get_error);
-      else
         {
-          gchar *safe;
-          g_string_append (buffer, "\n/proc/meminfo:\n\n");
-          safe = g_markup_escape_text (output, strlen (output));
-          g_free (output);
-          g_string_append (buffer, safe);
-          g_free (safe);
-        }
+          /* For simplicity, it's up to the command to do the base64
+           * encoding.
+           */
+          if (params_count == 1)
+            command = g_strdup_printf ("gvmcg %ld %s",
+                                       cmd_param_1,
+                                       name);
+          else
+            command = g_strdup_printf ("gvmcg %ld %ld %s",
+                                       cmd_param_1,
+                                       cmd_param_2,
+                                       name);
 
-      *report = g_string_free (buffer, FALSE);
-      return 3;
+          g_debug ("   command: %s", command);
+
+          if ((g_spawn_command_line_sync (command,
+                                          &astdout,
+                                          &astderr,
+                                          &exit_status,
+                                          &err)
+               == FALSE)
+              || (WIFEXITED (exit_status) == 0)
+              || WEXITSTATUS (exit_status))
+            {
+              return_code = 3;
+
+              g_warning ("%s: Failed to create performance graph -- %s",
+                         __func__, astderr);
+              g_debug ("%s: gvmcg failed with %d", __func__, exit_status);
+              g_debug ("%s: stdout: %s", __func__, astdout);
+              g_debug ("%s: stderr: %s", __func__, astderr);
+            }
+          g_free (command);
+        }
     }
+
+  if (return_code == 3 || return_code == 6)
+    {
+      buffer = g_string_new ("");
+      g_string_append_printf (buffer,
+                              "Failed to create performance graph: %s",
+                              (return_code == 3 ? astderr : slave_error));
+      *report = g_string_free (buffer, FALSE);
+    }
+
   g_free (astderr);
-  g_free (command);
-  if (astdout == NULL || strlen (astdout) == 0)
+  g_free (slave_error);
+
+  if (return_code == 6 || return_code == 7)
+    return_code = 3;
+
+  if ((astdout == NULL || strlen (astdout) == 0) &&
+      *report == NULL)
     {
       g_free (astdout);
       if (strcmp (name, "blank") == 0)
@@ -4491,9 +4620,12 @@ manage_system_report (const char *name, const char *duration,
       return manage_system_report ("blank", NULL, NULL, NULL,
                                    NULL, report);
     }
-  else
+  else if (*report == NULL)
     *report = astdout;
-  return 0;
+  else
+    g_free (astdout);
+
+  return return_code;
 }
 
 
@@ -4965,13 +5097,176 @@ manage_sync (sigset_t *sigmask_current,
         }
     }
 
-  if (try_gvmd_data_sync)
+  if (try_gvmd_data_sync
+      && (should_sync_configs ()
+          || should_sync_port_lists ()
+          || should_sync_report_formats ()))
     {
-      manage_sync_configs ();
-      manage_sync_port_lists ();
-      manage_sync_report_formats ();
+      if (feed_lockfile_lock (&lockfile) == 0)
+        {
+          manage_sync_configs ();
+          manage_sync_port_lists ();
+          manage_sync_report_formats ();
+
+          lockfile_unlock (&lockfile);
+        }
     }
 }
+
+/**
+ * @brief Adds a switch statement for handling the return value of a
+ *        gvmd data rebuild.
+ * @param type  The type as a description string, e.g. "port lists"
+ */
+#define REBUILD_SWITCH(type) \
+  switch (ret)                                                              \
+    {                                                                       \
+      case 0:                                                               \
+        g_message ("Rebuilt %s from feed.", type);                          \
+        break;                                                              \
+      case 1:                                                               \
+        if (error_msg)                                                      \
+          *error_msg = g_strdup_printf ("No %s feed directory.",            \
+                                        type);                              \
+        return -1;                                                          \
+      case 2:                                                               \
+        if (error_msg)                                                      \
+          *error_msg = g_strdup_printf ("Feed owner not set or invalid"     \
+                                        " while rebuilding %s.",            \
+                                        type);                              \
+        return -1;                                                          \
+      case 3:                                                               \
+        if (error_msg)                                                      \
+          *error_msg = g_strdup_printf ("NVTs must be available"            \
+                                        " while rebuilding %s.",            \
+                                        type);                              \
+        return -1;                                                          \
+      default:                                                              \
+        if (error_msg)                                                      \
+          *error_msg = g_strdup_printf ("Internal error"                    \
+                                        " while rebuilding %s.",            \
+                                        type);                              \
+        return -1;                                                          \
+    }
+
+/**
+ * @brief Rebuild configs, port lists and report formats from feed.
+ * 
+ * @param[in]  types      Comma-separated lists of types to rebuild or "all".
+ * @param[in]  log_config Logging configuration list.
+ * @param[in]  database   Connection info for manage database.
+ * @param[out] error_msg  Error message.
+ * 
+ * @return 0 success, -1 failed.
+ */
+int
+manage_rebuild_gvmd_data_from_feed (const char *types,
+                                    GSList *log_config,
+                                    const db_conn_info_t *database,
+                                    gchar **error_msg)
+{
+  int ret;
+  lockfile_t lockfile;
+  gboolean sync_configs, sync_port_lists, sync_report_formats;
+
+  sync_configs = sync_port_lists = sync_report_formats = FALSE;
+
+  if (strcasecmp (types, "all") == 0)
+    {
+      sync_configs = TRUE;
+      sync_port_lists = TRUE;
+      sync_report_formats = TRUE;
+    }
+  else
+    {
+      gchar **split, **split_iter;
+      split = g_strsplit (types, ",", -1);
+
+      if (*split == NULL)
+        {
+          g_free (split);
+          if (error_msg)
+            *error_msg = g_strdup ("No types given.");
+          return -1;
+        }
+
+      split_iter = split;
+      while (*split_iter)
+        {
+          gchar *type = g_strstrip (*split_iter);
+          
+          if (strcasecmp (type, "configs") == 0)
+            sync_configs = TRUE;
+          else if (strcasecmp (type, "port_lists") == 0)
+            sync_port_lists = TRUE;
+          else if (strcasecmp (type, "report_formats") == 0)
+            sync_report_formats = TRUE;
+          else
+            {
+              if (error_msg)
+                *error_msg = g_strdup_printf ("Invalid type \"%s\""
+                                              " (must be \"configs\","
+                                              " \"port_lists\","
+                                              " \"report_formats\""
+                                              " or \"all\")",
+                                              type);
+              g_strfreev (split);
+              return -1;
+            }
+          split_iter ++;
+        }
+      g_strfreev (split);
+    }
+
+  ret = feed_lockfile_lock_timeout (&lockfile);
+  if (ret == 1)
+    {
+      if (error_msg)
+        *error_msg = g_strdup ("Feed locked.");
+      return -1;
+    }
+  else if (ret)
+    {
+      if (error_msg)
+        *error_msg = g_strdup ("Error acquiring feed lock.");
+      return -1;
+    }
+
+  ret = manage_option_setup (log_config, database);
+  if (ret)
+    {
+      if (error_msg)
+        *error_msg = g_strdup ("Error setting up log config or"
+                               " database connection.");
+      return -1;
+    }
+
+  if (sync_configs)
+    {
+      g_message ("Rebuilding configs from feed...");
+      ret = manage_rebuild_configs ();
+      REBUILD_SWITCH ("configs")
+    }
+
+  if (sync_port_lists)
+    {
+      g_message ("Rebuilding port lists from feed...");
+      ret = manage_rebuild_port_lists ();
+      REBUILD_SWITCH ("port lists")
+    }
+
+  if (sync_report_formats)
+    {
+      g_message ("Rebuilding report formats from feed...");
+      ret = manage_rebuild_report_formats ();
+      REBUILD_SWITCH ("report formats")
+    }
+
+  feed_lockfile_unlock (&lockfile);
+  return 0;
+}
+
+#undef REBUILD_SWITCH
 
 /**
  * @brief Schedule any actions that are due.
@@ -5360,11 +5655,11 @@ xsl_transform (gchar *stylesheet, gchar *xmlfile, gchar **param_names,
       || (WIFEXITED (exit_status) == 0)
       || WEXITSTATUS (exit_status))
     {
-      g_debug ("%s: failed to transform the xml: %d (WIF %i, WEX %i)",
-               __func__,
-               exit_status,
-               WIFEXITED (exit_status),
-               WEXITSTATUS (exit_status));
+      g_warning ("%s: failed to transform the xml: %d (WIF %i, WEX %i)",
+                 __func__,
+                 exit_status,
+                 WIFEXITED (exit_status),
+                 WEXITSTATUS (exit_status));
       g_debug ("%s: stderr: %s", __func__, standard_err);
       g_debug ("%s: stdout: %s", __func__, standard_out);
       success = FALSE;
@@ -5747,7 +6042,11 @@ manage_scap_update_time ()
   if (strptime (content, "%Y%m%d%H%M", &update_time))
     {
       static char time_string[100];
-      strftime (time_string, 99, "%FT%T.000%z", &update_time);
+      #if !defined(__GLIBC__)
+        strftime (time_string, 99, "%Y-%m-%dT%T.000", &update_time);
+      #else
+        strftime (time_string, 99, "%FT%T.000%z", &update_time);
+      #endif
       return time_string;
     }
   return "";
@@ -5978,11 +6277,12 @@ void
 write_sync_start (int lockfile_fd)
 {
   time_t now;
-  char *now_string;
+  char now_string[26];
+  char *now_string_ptr = now_string;
 
   now = time (NULL);
-  now_string = ctime (&now);
-  while (*now_string)
+  ctime_r (&now, now_string);
+  while (*now_string_ptr)
     {
       ssize_t count;
       count = write (lockfile_fd,
@@ -5998,7 +6298,7 @@ write_sync_start (int lockfile_fd)
                      strerror (errno));
           break;
         }
-      now_string += count;
+      now_string_ptr += count;
     }
 }
 
