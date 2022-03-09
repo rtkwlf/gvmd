@@ -123,7 +123,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 [20.8.4]: https://github.com/greenbone/gvmd/compare/v20.8.3...oldstable
 
-
 ## [20.8.3] - 2021-08-03
 
 ### Added
