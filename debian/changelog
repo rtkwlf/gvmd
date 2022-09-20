@@ -1,9 +1,10 @@
-gvmd (21.04-awn0.1.999999) UNRELEASED; urgency=medium
+gvmd (22.4.0-awn0.4.999999) UNRELEASED; urgency=medium
 
   [ root ]
   * Initial release. (Closes: #XXXXXX)
 
   [ rtkwlf ]
   * new version 21.04-awn0.1.999999
+  * new version 22.4.0-awn0.4.999999
 
- -- rtkwlf <>  Fri, 25 Jun 2021 14:20:56 +0000
+ -- rtkwlf <>  Tue, 20 Sep 2022 16:52:31 +0000
