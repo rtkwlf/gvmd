@@ -1,0 +1,9 @@
+gvmd (21.4.3-awn0.1.999999) UNRELEASED; urgency=medium
+
+  [ root ]
+  * Initial release. (Closes: #XXXXXX)
+
+  [ rtkwlf ]
+  * new version 21.4.3-awn0.1.999999
+
+ -- rtkwlf <>  Fri, 19 May 2023 14:20:56 +0000
