@@ -64,7 +64,7 @@ if (PROJECT_DEV_VERSION)
   set (PROJECT_VERSION_SUFFIX "~dev${PROJECT_DEV_VERSION}")
 endif (PROJECT_DEV_VERSION)
 
-set (PROJECT_VERSION_STRING 
+set (PROJECT_VERSION_STRING
 "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${PROJECT_VERSION_SUFFIX}${GIT_REVISION}")
 
 ## CPack configuration
@@ -180,10 +180,12 @@ set (GVM_CLIENT_CERTIFICATE  "${GVM_STATE_DIR}/CA/clientcert.pem")
 set (GVM_CLIENT_KEY          "${GVM_STATE_DIR}/private/CA/clientkey.pem")
 set (GVM_CA_CERTIFICATE      "${GVM_STATE_DIR}/CA/cacert.pem")
 
+set (GVMD_RUN_DIR      "/usr/var/run")
 if (NOT GVMD_RUN_DIR)
   set (GVMD_RUN_DIR      "/run/gvmd")
 endif (NOT GVMD_RUN_DIR)
 
+set (GVMD_PID_PATH     "${GVMD_RUN_DIR}/gvmd.pid")
 if (NOT GVMD_PID_PATH)
   set (GVMD_PID_PATH     "${GVMD_RUN_DIR}/gvmd.pid")
 endif (NOT GVMD_PID_PATH)
